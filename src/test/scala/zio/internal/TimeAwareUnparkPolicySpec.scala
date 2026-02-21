@@ -13,7 +13,8 @@ final class TimeAwareUnparkPolicySpec extends FunSuite {
     val clock  = new FakeClock(0L)
     val policy = new TimeAwareUnparkPolicy(poolSize = 8, minNanosBetweenUnparks = 100L, nanoTime = () => clock.now())
 
-    val decisions = (1 to 100).map(_ => policy.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 1))
+    // active=7 => deficit=1, so no deficit-tier relaxation in this test.
+    val decisions = (1 to 100).map(_ => policy.shouldUnpark(activeWorkers = 7, searchingWorkers = 0, queuedTasks = 1))
 
     assertEquals(decisions.count(identity), 1)
   }
@@ -22,14 +23,14 @@ final class TimeAwareUnparkPolicySpec extends FunSuite {
     val clock  = new FakeClock(0L)
     val policy = new TimeAwareUnparkPolicy(poolSize = 8, minNanosBetweenUnparks = 100L, nanoTime = () => clock.now())
 
-    assert(policy.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 1))
-    assert(!policy.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 1))
+    assert(policy.shouldUnpark(activeWorkers = 7, searchingWorkers = 0, queuedTasks = 1))
+    assert(!policy.shouldUnpark(activeWorkers = 7, searchingWorkers = 0, queuedTasks = 1))
 
     clock.advance(99L)
-    assert(!policy.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 1))
+    assert(!policy.shouldUnpark(activeWorkers = 7, searchingWorkers = 0, queuedTasks = 1))
 
     clock.advance(1L)
-    assert(policy.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 1))
+    assert(policy.shouldUnpark(activeWorkers = 7, searchingWorkers = 0, queuedTasks = 1))
   }
 
   test("pressure/deficit relaxation lowers effective gap") {
@@ -39,14 +40,14 @@ final class TimeAwareUnparkPolicySpec extends FunSuite {
     val low = new TimeAwareUnparkPolicy(poolSize = 8, minNanosBetweenUnparks = 80L, nanoTime = () => lowClock.now())
     val high = new TimeAwareUnparkPolicy(poolSize = 8, minNanosBetweenUnparks = 80L, nanoTime = () => highClock.now())
 
-    assert(low.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 1))
+    assert(low.shouldUnpark(activeWorkers = 7, searchingWorkers = 0, queuedTasks = 1))
     assert(high.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 8))
 
-    // low pressure requires the full base gap; high pressure/deficit allows earlier unparks.
+    // low pressure requires full base gap; high pressure/deficit allows earlier unparks.
     lowClock.advance(20L)
     highClock.advance(20L)
 
-    assert(!low.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 1))
+    assert(!low.shouldUnpark(activeWorkers = 7, searchingWorkers = 0, queuedTasks = 1))
     assert(high.shouldUnpark(activeWorkers = 1, searchingWorkers = 0, queuedTasks = 8))
   }
 
