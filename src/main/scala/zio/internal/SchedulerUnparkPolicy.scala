@@ -5,7 +5,7 @@ package zio.internal
  *
  * The previous eager condition would return `true` on every submit under
  * sustained pressure, causing excessive unpark churn. This policy adds a
- * deterministic submit-count throttle that still guarantees periodic unparks.
+ * deterministic submit-count throttle and modest pressure-aware relaxation.
  *
  * NOTE: This is a small deterministic model used for regression work in this
  * repository and is intentionally single-threaded / not synchronized.
@@ -26,9 +26,27 @@ final class SchedulerUnparkPolicy(
 
     if (!hasQueuedWork || !belowPoolLimit) false
     else {
-      val should = submissionsSinceLastUnpark >= minSubmissionsBetweenUnparks
-      submissionsSinceLastUnpark = if (should) 0 else submissionsSinceLastUnpark + 1
+      val gap    = effectiveSubmissionGap(queuedTasks)
+      val should = submissionsSinceLastUnpark >= gap
+
+      submissionsSinceLastUnpark =
+        if (should) 0
+        else if (submissionsSinceLastUnpark == Int.MaxValue) Int.MaxValue
+        else submissionsSinceLastUnpark + 1
+
       should
+    }
+  }
+
+  private def effectiveSubmissionGap(queuedTasks: Int): Int = {
+    if (minSubmissionsBetweenUnparks == 0) 0
+    else {
+      val pressureTier =
+        if (queuedTasks >= poolSize) 2
+        else if (queuedTasks >= math.max(1, poolSize / 2)) 1
+        else 0
+
+      math.max(1, minSubmissionsBetweenUnparks >> pressureTier)
     }
   }
 }
