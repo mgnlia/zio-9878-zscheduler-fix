@@ -3,7 +3,7 @@
 This report attaches the 3 required URLs.
 
 1. **Passing CI run URL**  
-   https://github.com/mgnlia/zio-9878-zscheduler-fix/actions/runs/22248759244
+   https://github.com/mgnlia/zio-9878-zscheduler-fix/actions/runs/22248855623
 
 2. **Upstream PR URL to `zio/zio` referencing `#9878`**  
    https://github.com/zio/zio/pull/10440
