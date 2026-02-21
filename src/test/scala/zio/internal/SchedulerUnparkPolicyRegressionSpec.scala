@@ -10,7 +10,7 @@ final class SchedulerUnparkPolicyRegressionSpec extends FunSuite {
 
     // Deterministic expectation with default minSubmissionsBetweenUnparks=20.
     assertEquals(unparks, 48)
-    assert(unparks <= 50, clues(s"unparks=$unparks"))
+    assert(unparks <= 50, s"unparks=$unparks")
   }
 
   test("deterministic pressure tiers: low/medium/high unpark frequencies") {
@@ -25,7 +25,7 @@ final class SchedulerUnparkPolicyRegressionSpec extends FunSuite {
     assertEquals(lowUnparks, 48)
     assertEquals(medUnparks, 91)
     assertEquals(hiUnparks, 167)
-    assert(lowUnparks < medUnparks && medUnparks < hiUnparks, clues(s"low=$lowUnparks med=$medUnparks hi=$hiUnparks"))
+    assert(lowUnparks < medUnparks && medUnparks < hiUnparks, s"low=$lowUnparks med=$medUnparks hi=$hiUnparks")
   }
 
   test("eventual progress: under pressure unparks recur within bounded interval") {
@@ -45,7 +45,7 @@ final class SchedulerUnparkPolicyRegressionSpec extends FunSuite {
     }
 
     // With gap=20 in low pressure, silence between unparks should be <= 20 submits.
-    assert(longestSilentSpan <= 20, clues(s"longestSilentSpan=$longestSilentSpan"))
+    assert(longestSilentSpan <= 20, s"longestSilentSpan=$longestSilentSpan")
   }
 
   test("no queued work -> no unpark") {
@@ -72,7 +72,7 @@ final class SchedulerUnparkPolicyRegressionSpec extends FunSuite {
     val highPressureUnparks =
       (1 to 1000).count(_ => policyHigh.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 8))
 
-    assert(highPressureUnparks > lowPressureUnparks, clues(s"low=$lowPressureUnparks high=$highPressureUnparks"))
+    assert(highPressureUnparks > lowPressureUnparks, s"low=$lowPressureUnparks high=$highPressureUnparks")
   }
 
   test("before/after model comparison: throttled policy cuts unpark churn") {
@@ -86,7 +86,7 @@ final class SchedulerUnparkPolicyRegressionSpec extends FunSuite {
 
     assertEquals(eagerUnparks, 1000)
     assertEquals(fixedUnparks, 48)
-    assert(fixedUnparks < eagerUnparks / 10, clues(s"eager=$eagerUnparks fixed=$fixedUnparks"))
+    assert(fixedUnparks < eagerUnparks / 10, s"eager=$eagerUnparks fixed=$fixedUnparks")
   }
 
   test("validation: invalid constructor args are rejected") {
