@@ -1,14 +1,34 @@
 package zio.internal
 
 /**
- * Minimal reproduction model for zio/zio#9878.
+ * Minimal fix model for zio/zio#9878.
  *
- * This intentionally mirrors the currently-eager behavior called out in the issue:
- * under persistent pressure, the scheduler keeps deciding to unpark workers,
- * with no temporal rate-limit.
+ * The previous eager condition would return `true` on every submit under
+ * sustained pressure, causing excessive unpark churn. This policy adds a
+ * deterministic submit-count throttle that still guarantees periodic unparks.
+ *
+ * NOTE: This is a small deterministic model used for regression work in this
+ * repository and is intentionally single-threaded / not synchronized.
  */
-final class SchedulerUnparkPolicy(poolSize: Int) {
+final class SchedulerUnparkPolicy(
+  poolSize: Int,
+  minSubmissionsBetweenUnparks: Int = 20
+) {
+  require(poolSize > 0, "poolSize must be > 0")
+  require(minSubmissionsBetweenUnparks >= 0, "minSubmissionsBetweenUnparks must be >= 0")
 
-  def shouldUnpark(activeWorkers: Int, searchingWorkers: Int, queuedTasks: Int): Boolean =
-    queuedTasks > 0 && (activeWorkers + searchingWorkers) < poolSize
+  // Start "ready" so the first pressured submit can immediately unpark.
+  private[this] var submissionsSinceLastUnpark = Int.MaxValue
+
+  def shouldUnpark(activeWorkers: Int, searchingWorkers: Int, queuedTasks: Int): Boolean = {
+    val hasQueuedWork  = queuedTasks > 0
+    val belowPoolLimit = (activeWorkers + searchingWorkers) < poolSize
+
+    if (!hasQueuedWork || !belowPoolLimit) false
+    else {
+      val should = submissionsSinceLastUnpark >= minSubmissionsBetweenUnparks
+      submissionsSinceLastUnpark = if (should) 0 else submissionsSinceLastUnpark + 1
+      should
+    }
+  }
 }
