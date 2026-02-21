@@ -13,6 +13,41 @@ final class SchedulerUnparkPolicyRegressionSpec extends FunSuite {
     assert(unparks <= 50, clues(s"unparks=$unparks"))
   }
 
+  test("deterministic pressure tiers: low/medium/high unpark frequencies") {
+    val low = new SchedulerUnparkPolicy(poolSize = 8)
+    val med = new SchedulerUnparkPolicy(poolSize = 8)
+    val hi  = new SchedulerUnparkPolicy(poolSize = 8)
+
+    val lowUnparks = (1 to 1000).count(_ => low.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 1))
+    val medUnparks = (1 to 1000).count(_ => med.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 4))
+    val hiUnparks  = (1 to 1000).count(_ => hi.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 8))
+
+    assertEquals(lowUnparks, 48)
+    assertEquals(medUnparks, 91)
+    assertEquals(hiUnparks, 167)
+    assert(lowUnparks < medUnparks && medUnparks < hiUnparks, clues(s"low=$lowUnparks med=$medUnparks hi=$hiUnparks"))
+  }
+
+  test("eventual progress: under pressure unparks recur within bounded interval") {
+    val policy = new SchedulerUnparkPolicy(poolSize = 8, minSubmissionsBetweenUnparks = 20)
+
+    var longestSilentSpan = 0
+    var currentSilentSpan = 0
+
+    (1 to 500).foreach { _ =>
+      val didUnpark = policy.shouldUnpark(activeWorkers = 3, searchingWorkers = 0, queuedTasks = 1)
+      if (didUnpark) {
+        if (currentSilentSpan > longestSilentSpan) longestSilentSpan = currentSilentSpan
+        currentSilentSpan = 0
+      } else {
+        currentSilentSpan += 1
+      }
+    }
+
+    // With gap=20 in low pressure, silence between unparks should be <= 20 submits.
+    assert(longestSilentSpan <= 20, clues(s"longestSilentSpan=$longestSilentSpan"))
+  }
+
   test("no queued work -> no unpark") {
     val policy  = new SchedulerUnparkPolicy(poolSize = 8)
     val unparks = (1 to 200).count(_ => policy.shouldUnpark(activeWorkers = 1, searchingWorkers = 0, queuedTasks = 0))
