@@ -53,4 +53,9 @@ final class SchedulerUnparkPolicyRegressionSpec extends FunSuite {
     assertEquals(fixedUnparks, 48)
     assert(fixedUnparks < eagerUnparks / 10, clues(s"eager=$eagerUnparks fixed=$fixedUnparks"))
   }
+
+  test("validation: invalid constructor args are rejected") {
+    intercept[IllegalArgumentException](new SchedulerUnparkPolicy(poolSize = 0))
+    intercept[IllegalArgumentException](new SchedulerUnparkPolicy(poolSize = 8, minSubmissionsBetweenUnparks = -1))
+  }
 }
